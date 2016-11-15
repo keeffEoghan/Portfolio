@@ -58,6 +58,9 @@ export default (canvas, settings, debug) => {
 
     // Parameters...
 
+    const queryColor = (query) => query.split(',').map((c) =>
+                parseFloat(c.replace(/[\[\]]/gi, ''), 10))
+
     const params = {
         track: (decodeURIComponent(queries.track || '') ||
                 prompt('Enter a track URL:')),
@@ -85,15 +88,10 @@ export default (canvas, settings, debug) => {
         jitter: ((queries.jitter)? parseFloat(queries.jitter, 10) : 0.002),
         nowAlpha: ((queries.nowAlpha)? parseFloat(queries.nowAlpha, 10) : 1),
         pastAlpha: ((queries.pastAlpha)? parseFloat(queries.pastAlpha, 10) : 0.99),
-        formAlpha: ((queries.formAlpha)? parseFloat(queries.formAlpha, 10) : 1),
-        ringAlpha: ((queries.ringAlpha)? parseFloat(queries.ringAlpha, 10) : 0.001),
         bokehRadius: ((queries.bokehRadius)? parseFloat(queries.bokehRadius, 10) : 8),
         bokehAmount: ((queries.bokehAmount)? parseFloat(queries.bokehAmount, 10) : 60),
-
-        ambient: ((queries.ambient)?
-                queries.ambient.split(',').map((v) =>
-                    parseFloat(v.replace(/[\[\]]/gi, ''), 10))
-            :   [1, 1, 1, 1])
+        ambient: ((queries.ambient)? queryColor(queries.ambient) : [1, 1, 1, 1]),
+        emit: ((queries.emit)? queryColor(queries.emit) : [1, 1, 1, 1])
     };
 
     Object.assign(self, params);
@@ -202,7 +200,6 @@ export default (canvas, settings, debug) => {
         // Screen pass - draw the light and form
 
         buffers[1].bind();
-        // gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         drawShader.bind();
 
         Object.assign(drawShader.uniforms, head, {
@@ -227,15 +224,15 @@ export default (canvas, settings, debug) => {
                 otherEdge,
                 bokehRadius,
                 bokehAmount,
-                formAlpha,
-                ringAlpha,
-                ambient
+                ambient,
+                emit
             });
 
         screen.render();
 
 
         // Post pass
+        // @todo Could be done in draw call
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         bokehShader.bind();

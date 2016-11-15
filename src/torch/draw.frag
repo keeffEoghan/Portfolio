@@ -30,20 +30,21 @@ uniform float otherRadius;
 uniform float otherThick;
 uniform float otherEdge;
 
-uniform float formAlpha;
-uniform float ringAlpha;
-
 uniform vec4 ambient;
+uniform vec4 emit;
 
 // @todo Noise in form as well?
 #pragma glslify: noise = require(glsl-noise/simplex/3d)
+
 #pragma glslify: hsv2rgb = require(../../libs/glsl-hsv/hsv-rgb)
+
+#pragma glslify: preAlpha = require(../tendrils/utils/pre-alpha)
 
 #pragma glslify: posToAngle = require(./pos-to-angle)
 
 #pragma glslify: sampleSound = require(./sample-sound)
-#pragma glslify: sdfCircle = require(./sdf/circle)
-#pragma glslify: sdfTriangle = require(./sdf/triangle)
+#pragma glslify: toCircle = require(./sdf/circle)
+#pragma glslify: toTriangle = require(./sdf/triangle)
 
 void main() {
     vec2 uv = gl_FragCoord.xy/viewRes;
@@ -58,16 +59,16 @@ void main() {
         (sampleSound(audio, angle-frequencyOffset).x*soundSmooth)+
         (sampleSound(audio, angle+frequencyOffset).x*soundSmooth);
 
-    float amp = max(abs(soundKernel/(1.0+(2.0*soundSmooth))), silent);
+    float sound = max(abs(soundKernel/(1.0+(2.0*soundSmooth))), silent);
 
 
     // The light ring
 
-    float warp = (mean*amp*soundWarp)+
+    float warp = (mean*sound*soundWarp)+
         (noise(vec3(pos*(1.0+noiseScale*(0.3+peak)), time*noiseSpeed))
             *noiseWarp*(0.3+mean));
 
-    float ringSDF = clamp(abs(dist-radius-warp)-thick, 0.0, 1.0)/amp;
+    float ringSDF = clamp(abs(dist-radius-warp)-thick, 0.0, 1.0)/sound;
 
 
     // Other circle
@@ -77,7 +78,7 @@ void main() {
 
     float otherRad = otherRadius*length(otherPos)*peakPos;
 
-    float otherSDF = clamp(abs(sdfCircle(pos, otherPos, otherRad))-
+    float otherSDF = clamp(abs(toCircle(pos, otherPos, otherRad))-
                 abs(otherThick*mean),
             0.0, 1.0)/
         step(otherEdge, abs(peak));
@@ -97,20 +98,13 @@ void main() {
     // float fade = 1.0/sdf;
 
 
-    // Sound
-    float sound = fade;
-
-
     // Accumulate color
 
-    vec4 ring = vec4(sound*attenuate);
+    vec4 light = vec4(fade*attenuate)*emit;
+    vec4 geom = texture2D(form, uv)*ambient;
 
-    vec4 geom = texture2D(form, uv);
-
-    // vec4 color = ring*ringAlpha;
-    // vec4 color = geom*formAlpha*ambient;
-
-    vec4 color = (ring*ringAlpha)+(geom*formAlpha*ambient);
+    // vec4 color = preAlpha(light)+preAlpha(geom);
+    vec4 color = light+geom;
 
     gl_FragColor = color;
 }
